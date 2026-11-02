@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseDocumentClient } from "@/lib/parse";
+import { translateChunkClient } from "@/lib/translate";
 
 const LANGUAGES = [
   "English",
@@ -89,15 +91,9 @@ export default function Home() {
     resetDocument();
     setIsParsing(true);
     try {
-      const form = new FormData();
-      form.append("file", f);
-      const res = await fetch("/api/parse", { method: "POST", body: form });
-      const data = await res.json();
+      const parsed = await parseDocumentClient(f);
       if (id !== parseId.current) return;
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to parse the file.");
-      }
-      const extracted = data.pages as string[];
+      const extracted = parsed.pages;
       const fullText = extracted.join("\n\n");
       if (!fullText.trim()) {
         throw new Error("No readable text was found in this document.");
@@ -157,20 +153,19 @@ export default function Home() {
         setCurrentPage(i + 1);
         setProgressPercent(Math.round(((i + 1) / totalPages) * 100));
 
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: pages[i], targetLanguage }),
-          signal: controller.signal,
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
+        let translated: string;
+        try {
+          translated = await translateChunkClient(pages[i], targetLanguage);
+        } catch (err) {
           throw new Error(
-            `Page ${i + 1} failed: ${data.error || "Translation failed."}`
+            `Page ${i + 1} failed: ${
+              err instanceof Error ? err.message : "Translation failed."
+            }`
           );
         }
+        if (controller.signal.aborted) return;
         setTranslatedText((prev) =>
-          prev ? `${prev}\n\n${data.translatedText}` : data.translatedText
+          prev ? `${prev}\n\n${translated}` : translated
         );
 
         if (i < pages.length - 1) {

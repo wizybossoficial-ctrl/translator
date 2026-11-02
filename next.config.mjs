@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ["pdf-parse", "pdfjs-dist", "mammoth"],
-  },
+  output: 'export',
+  basePath: '/translator',
+  images: { unoptimized: true },
 };
 
 export default nextConfig;
